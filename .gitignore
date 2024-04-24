@@ -32,6 +32,8 @@ out/
 /dist/
 /nbdist/
 /.nb-gradle/
+### Querydsl
+/src/main/generated
 
 ### VS Code ###
 .vscode/
