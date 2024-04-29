@@ -1,16 +1,24 @@
 package study.querydsl;
 
+import com.querydsl.core.QueryResults;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.entity.Member;
-import study.querydsl.entity.QHello;
+import study.querydsl.entity.QMember;
 import study.querydsl.entity.Team;
 
 import java.util.List;
+
+import static org.assertj.core.api.Assertions.*;
+import static study.querydsl.entity.QMember.member;
 
 @SpringBootTest
 @Transactional
@@ -20,6 +28,22 @@ class QuerydslApplicationTests {
 	@PersistenceContext
 	EntityManager em;
 
+	JPAQueryFactory query;
+
+	@PostConstruct
+	public  void init(){
+		this.query = new JPAQueryFactory(em);
+	}
+
+	@BeforeEach
+	public void initdata(){
+		for(int i=0;i<10;i++){
+
+			em.persist(new Member("member"+i, 10+i));
+		}
+		em.flush();
+		em.clear();
+	}
 
 //	@Test
 //	void contextLoads() {
@@ -61,5 +85,60 @@ class QuerydslApplicationTests {
 			System.out.println("member=" + member);
 			System.out.println("-> member.team=" + member.getTeam());
 		}
+	}
+
+
+	@Test
+	public  void startquerydsl(){
+		Member member1 = new Member("member1", 10);
+		em.persist(member1);
+		em.flush();
+		em.clear();
+		Member find= query
+				.select(member)
+				.from(member)
+				.where(member.username.eq("member1"))
+				.fetchOne();
+
+		assertThat(find.getUsername()).isEqualTo("member1");
+	}
+
+	@Test
+	public void search(){
+		Member member1 = new Member("member1", 10);
+		em.persist(member1);
+		em.flush();
+		em.clear();
+		Member member11 = query.selectFrom(member)
+				.where(member.username.eq("member1")
+						.and(member.age.between(10,30)))
+				.fetchOne();
+		assertThat(member11.getUsername()).isEqualTo("member1");
+	}
+
+
+	@Test
+	public void resutFetchtest(){
+//		List<Member> fetch = query
+//				.selectFrom(member)
+//				.fetch();
+//
+//		Member fetchOne=  query
+//				.selectFrom(member)
+//				.fetchOne();
+//
+//		Member memberFirst = query
+//				.selectFrom(member)
+//				.fetchFirst();
+
+//		QueryResults<Member> res= query.selectFrom(member)
+//				.fetchResults();
+//
+//		res.getTotal();
+//		List<Member> conten = res.getResults();
+
+		long total = query
+				.selectFrom(member)
+				.fetchCount();
 	}
 }
