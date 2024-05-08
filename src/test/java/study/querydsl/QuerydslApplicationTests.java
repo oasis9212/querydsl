@@ -2,10 +2,13 @@ package study.querydsl;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.PersistenceUnit;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -272,4 +275,70 @@ class QuerydslApplicationTests {
 
 	}
 
+	// 회원과 팀을 조인하면서, 팀A팀만 조회 회원은 모두 조회
+	@Test
+	public  void join_on_filtering(){
+		List<Tuple> teamA = query
+				.select(member, team)
+				.from(member)
+				.leftJoin(member.team, team)
+//				.on(team.name.eq("teamA"))
+				.where(team.name.eq("teamA"))  // 동일한 결과가 나온다.
+				.fetch();
+
+		for(Tuple res : teamA){
+			System.out.println(res);
+		}
+
+	}
+	// 연관 관계가 없는 엔티티 외부 조인
+	// 회원의 이름이 팀이랑 같은 대상 조인.
+	@Test
+	public  void  join_no_관계가없는조인(){
+		em.persist(new Member("teamA"));
+		em.persist(new Member("teamB"));
+		em.persist(new Member("teamC"));
+
+		List<Tuple> teamA = query
+				.select(member, team)
+				.from(member)
+				.join(team).on(member.username.eq(team.name))
+				.fetch();
+
+		for(Tuple res : teamA){
+			System.out.println(res);
+		}
+	}
+
+	@PersistenceUnit
+	EntityManagerFactory emf;
+
+	@Test
+	public void fetchJoinNo(){
+		em.flush();
+		em.clear();
+
+		Member member1 = query
+				.selectFrom(member)
+				.where(member.username.eq("member1"))
+				.fetchOne();
+
+		boolean loaded=emf.getPersistenceUnitUtil().isLoaded(member1.getTeam());
+		assertThat(loaded).as("패치 조인 미적용").isFalse();
+	}
+
+	@Test
+	public void fetchJoinYes(){
+		em.flush();
+		em.clear();
+
+		Member member1 = query
+				.selectFrom(member)
+				.join(member.team, team).fetchJoin()
+				.where(member.username.eq("member1"))
+				.fetchOne();
+
+		boolean loaded=emf.getPersistenceUnitUtil().isLoaded(member1.getTeam());
+		assertThat(loaded).as("패치 조인 미적용").isTrue();
+	}
 }
