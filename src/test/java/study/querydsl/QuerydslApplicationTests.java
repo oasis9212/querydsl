@@ -2,6 +2,10 @@ package study.querydsl;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.Expression;
+import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.annotation.PostConstruct;
@@ -22,6 +26,7 @@ import study.querydsl.entity.Team;
 
 import java.util.List;
 
+import static com.querydsl.jpa.JPAExpressions.*;
 import static org.assertj.core.api.Assertions.*;
 import static study.querydsl.entity.QMember.member;
 import static study.querydsl.entity.QTeam.*;
@@ -340,5 +345,121 @@ class QuerydslApplicationTests {
 
 		boolean loaded=emf.getPersistenceUnitUtil().isLoaded(member1.getTeam());
 		assertThat(loaded).as("패치 조인 미적용").isTrue();
+	}
+
+	// 서브 쿼리
+	@Test
+	public void subQuery(){
+
+		QMember member1= new QMember("member1");
+
+		List<Member> fetch = query
+				.selectFrom(member)
+				.where(member.age.eq(
+						select(member1.age.max())
+								.from(member1)
+				))
+				.fetch();
+
+		fetch.stream().forEach(e -> System.out.println(e));
+	}
+
+
+	@Test
+	public void subQueryGoe(){
+
+		QMember member1= new QMember("member1");
+
+		List<Member> fetch = query
+				.selectFrom(member)
+				.where(member.age.goe(
+						select(member1.age.avg())
+								.from(member1)
+				))
+				.fetch();
+
+		fetch.stream().forEach(e -> System.out.println(e));
+	}
+
+
+	@Test
+	public void subQueryIn(){
+
+		QMember member1= new QMember("member1");
+
+		List<Member> fetch = query
+				.selectFrom(member)
+				.where(member.age.in(
+						select(member1.age)
+								.from(member1)
+								.where(member1.age.gt(10))
+				))
+				.fetch();
+
+		fetch.stream().forEach(e -> System.out.println(e));
+	}
+
+	// JPA 서브쿼리는 from 절에선 지원안된다. 애초에 JPA 자체에서 구현 하지 못하기 때문에
+
+	@Test
+	public void subQueryselect(){
+
+		QMember member1= new QMember("member1");
+
+		List<Tuple> fetch = query
+				.select(member.username,
+						select(member1.age.avg())
+								.from(member1))
+				.from(member)
+				.fetch();
+
+
+		fetch.stream().forEach(e -> System.out.println(e));
+	}
+
+
+
+	@Test
+	public void basicCase(){
+		query
+				.select(member.age
+						.when(10).then("열살")
+						.when(20).then("스무살")
+						.otherwise("나도 몰라")
+				)
+				.from(member)
+				.fetch();
+	}
+
+
+	@Test
+	public void complexCase(){
+		query
+				.select(new CaseBuilder()
+						.when(member.age.between(0,20)).then("0~20")
+						.when(member.age.between(30,40)).then("30~20")
+						.otherwise("기타")
+				)
+				.from(member)
+				.fetch();
+	}
+
+	// 상수 표현
+	@Test
+	public void constant(){
+		query
+				.select(member.username, Expressions.constant("A"))
+				.from(member)
+				.fetch();
+
+	}
+
+	@Test
+	public void concat(){
+		query
+				.select(member.username.concat("_").concat(member.age.stringValue()))
+				.from(member)
+				.where(member.username.eq("member1"))
+				.fetch();
 	}
 }
