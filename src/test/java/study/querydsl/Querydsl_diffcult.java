@@ -1,8 +1,11 @@
 package study.querydsl;
 
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.ExpressionUtils;
+import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.annotation.PostConstruct;
@@ -13,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.dto.MemberDto;
+import study.querydsl.dto.QMemberDto;
 import study.querydsl.dto.UserDto;
 import study.querydsl.entity.Member;
 import study.querydsl.entity.QMember;
@@ -85,16 +89,16 @@ public class Querydsl_diffcult {
     }
 
     // 비어있는 생성자가 필요함.
-    @Test
-    public void 쿼리dsl_dto방식(){
-        List<MemberDto> fetch = query.select(Projections.bean(MemberDto.class, member.username, member.age))
-                .from(member)
-                .fetch();
-
-        for(MemberDto d : fetch){
-            System.out.println(d);
-        }
-    }
+//    @Test
+//    public void 쿼리dsl_dto방식(){
+//        List<MemberDto> fetch = query.select(Projections.bean(MemberDto.class, member.username, member.age))
+//                .from(member)
+//                .fetch();
+//
+//        for(MemberDto d : fetch){
+//            System.out.println(d);
+//        }
+//    }
 
     // 생성자 방식이 필요없는
     @Test
@@ -127,5 +131,125 @@ public class Querydsl_diffcult {
         for(UserDto d : fetch){
             System.out.println(d);
         }
+    }
+
+
+    @Test
+    public void findDtoByQueryProjection(){
+        List<MemberDto> fetch = query
+                .select(new QMemberDto(member.username, member.age))
+                .from(member)
+                .fetch();
+
+
+        fetch.stream().forEach(e-> System.out.println(e));
+    }
+
+
+    // 동적 쿼리 booleanBuilder
+    @Test
+    public  void  booleanBuilder(){
+        String usernameParam ="member1";
+        Integer ageParam= 10;
+
+       List<Member> list= searchMember1(usernameParam,ageParam);
+       list.stream().forEach(e -> System.out.println(e));
+    }
+
+    private List<Member> searchMember1(String usernameParam, Integer ageParam) {
+
+        BooleanBuilder builder= new BooleanBuilder();
+        if(usernameParam !=null){
+            builder.and(member.username.eq(usernameParam));
+        }
+        if(ageParam !=null){
+            builder.and(member.age.eq(ageParam));
+        }
+
+        return query
+                .selectFrom(member)
+                .where(builder)
+                .fetch();
+    }
+
+
+    //다중 where 붙어 사용하기.
+    @Test
+    public void 다중_where(){
+        String usernameParam ="member1";
+        Integer ageParam= null;
+
+        List<Member> list= searchMember2(usernameParam,ageParam);
+        list.stream().forEach(e -> System.out.println(e));
+
+
+    }
+
+    private List<Member> searchMember2(String usernameParam, Integer ageParam) {
+        return query
+                .selectFrom(member)
+                .where(usernameEq(usernameParam), ageEq(ageParam))
+                .fetch();
+    }
+
+    // 다른 쿼리에서도 재활용성이 높아진다.
+    private List<Member> searchMember3(String usernameParam, Integer ageParam) {
+        return query
+                .selectFrom(member)
+                .where(allEq(usernameParam,ageParam))
+                .fetch();
+    }
+
+    private BooleanExpression usernameEq(String usernameParam) {
+        if( usernameParam!=null){
+            return member.username.eq(usernameParam);
+        }else{
+            return null;
+        }
+    }
+
+    private BooleanExpression  ageEq(Integer ageParam) {
+        if(ageParam !=null){
+            return member.age.eq(ageParam);
+        }else{
+            return null;
+        }
+    }
+
+
+    private BooleanExpression allEq(String username, Integer age){
+        return usernameEq(username).and(ageEq(age));
+    }
+    // 벌크 연산은
+    // 영속성 컨텍스트가 달라진다. 플러쉬 클리어가 필수다.
+    @Test
+    public void  bulkUpdate(){
+        Long count=  query.update(member)
+                .set(member.username,"비회원")
+                .where(member.age.lt(28))
+                .execute();
+        em.flush();
+        em.clear();
+
+
+        System.out.println(count);
+    }
+
+    @Test
+    public void bulkAdd(){
+        query
+                .update(member)
+           //     .set(member.age,member.age.add(1))  // 음수 처리하고 싶을땐 -1
+           //     .set(member.age,member.age.multiply(3))  // 곱
+                .set(member.age,member.age.divide(3))  // 나눗셈
+                .execute();
+    }
+
+    @Test
+    public void bulkdlelete(){
+        query.delete(member)
+                .where(member.username.eq("삭제 대상"))
+                .execute();
+
     }
 }
