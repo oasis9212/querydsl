@@ -6,6 +6,7 @@ import com.querydsl.core.types.ExpressionUtils;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.annotation.PostConstruct;
@@ -251,5 +252,30 @@ public class Querydsl_diffcult {
                 .where(member.username.eq("삭제 대상"))
                 .execute();
 
+    }
+
+
+    @Test
+    public  void  sqlFunction(){
+        List<String> fetch = query.select(
+                        Expressions.stringTemplate(
+                                "function ('replace', {0} , {1} , {2})",
+                                member.username, "member", "m")
+                ).from(member)
+                .fetch();
+        fetch.stream().forEach(e -> System.out.println(e.toString()));
+
+    }
+
+
+    @Test
+    public  void  sqlFunction2(){
+        List<String> fetch = query.select(member.username)
+                .from(member)
+                .where(
+          //              member.username.eq(Expressions.stringTemplate("function('lower',{0})", member.username))
+                member.username.eq(member.username.lower())
+                ).fetch();
+        fetch.stream().forEach(e -> System.out.println(e.toString()));
     }
 }
